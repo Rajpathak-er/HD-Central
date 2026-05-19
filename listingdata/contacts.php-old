@@ -1,0 +1,2220 @@
+<?php
+//echo "no access for now";
+//die;
+// Set Cache-Control header 
+header('Cache-Control: max-age=86400');
+
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Headers: Origin, X-Requested-With, Content-Type, Accept');
+//header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+//header("Cache-Control: post-check=0, pre-check=0", false);
+//header("Pragma: no-cache");
+//set_time_limit(0);
+//ini_set('max_execution_time', 500); //500 seconds
+//ini_set('memory_limit', '512M');
+
+ini_set('display_errors', 0);
+ini_set('display_startup_errors', 0);
+error_reporting(0);
+
+define( 'WP_USE_THEMES', false );
+
+/** Loads the WordPress Environment and Template */
+require  '/opt/bitnami/wordpress/wp-load.php';
+global $wpdb;
+
+function cmp($a, $b) {
+    return strcmp($a->name, $b->name);
+}
+
+function cmpdesc($a, $b) {
+    return strcmp($b->name, $a->name);
+}
+
+
+function get_terms_by_posttype($taxonomy, $postType) {
+
+    // Get all terms that have posts
+    $terms = get_terms($taxonomy, [
+        'hide_empty' => true,
+        'orderby' => 'name',
+        'order' => 'ASC',
+    ]);
+    $filterterms = array();
+foreach($terms as $term){
+  //echo $term->term_id;
+  if($taxonomy == "region" && $term->parent == 0){
+   // continue;
+  }
+
+
+      $tax_query = array();
+      $tax_query[] = array('taxonomy' => $taxonomy,
+                'terms' => $term->term_id);
+
+      if(!empty($_GET['year'])){
+          $tax_query[] = array('taxonomy' => 'ca-year',
+                'terms' => $_GET['year']);
+      }
+
+      if(!empty($_GET['Region'])){
+          $tax_query[] = array('taxonomy' => 'region',
+                'terms' => $_GET['Region']);
+      }
+
+
+      if(!empty($_GET['model'])){
+          $tax_query[] = array('taxonomy' => 'make',
+                'terms' => $_GET['model']);
+      }
+
+
+    // filter by condition
+    if( !empty($_GET['condition']) ){
+      $condition = $_GET['condition'];
+      $tax_query[] = array(
+        'taxonomy' => 'condition',
+        'field' => 'term_id',
+        'terms' => $condition,
+      );
+    }
+
+    // filter by seller
+    if( !empty($_GET['seller']) ){
+      $seller = $_GET['seller'];
+      $tax_query[] = array(
+        'taxonomy' => 'seller',
+        'field' => 'term_id',
+        'terms' => $seller,
+        );
+    }
+
+
+        $args = array('fields' => 'ids',
+            'posts_per_page' => 1,
+            'post_type' => $postType,
+            'tax_query' => $tax_query,
+        );
+
+
+
+        // filter by keywords
+    if( !empty($_GET['ca_keywords']) ){
+      $args['s'] = $_GET['ca_keywords'];
+    }
+
+
+ //   if($term->term_id == '3446'){
+ //      print_r($args);
+        $posts = new WP_Query($args);
+
+
+//          echo $posts->request;
+//          die;
+ //       }
+
+        if((($posts->found_posts) > 0)){
+      //    echo $posts->found_posts."<br/>";
+            $term->count = $posts->found_posts;
+            $filterterms[] = $term;
+        }
+
+
+}
+/*
+    // Remove terms that don't have any posts in the current post type
+    $terms = array_filter($terms, function ($term) use ($postType, $taxonomy) {
+      $tax_query = array();
+      $tax_query[] = array('taxonomy' => $taxonomy,
+                'terms' => $term);
+
+      if(!empty($_GET['year'])){
+          $tax_query[] = array('taxonomy' => 'ca-year',
+                'terms' => $_GET['year']);
+      }
+
+      if(!empty($_GET['model'])){
+          $tax_query[] = array('taxonomy' => 'make',
+                'terms' => $_GET['model']);
+      }
+
+
+        $args = array('fields' => 'ids',
+            'posts_per_page' => 1,
+            'post_type' => $postType,
+            'tax_query' => $tax_query,
+        );
+        $posts = new WP_Query($args);
+       // echo $posts->found_posts;
+
+        return (($posts->found_posts) > 0);
+    });
+  // echo "<pre>";
+   //     print_r($terms);
+    //    echo "</pre>";
+     */
+    // Return whatever we have left
+    if($taxonomy == 'ca-year'){
+      usort($filterterms, "cmpdesc");
+    }else{
+       usort($filterterms, "cmp");
+    }
+    // echo "<pre>";
+    // print_r($filterterms);
+    // echo "</pre>";
+    return $filterterms;
+}
+
+
+add_filter('posts_clauses_request', 'stm_listings_posts_clauses_bike', 100, 2);
+
+function stm_listings_posts_clauses_bike($clauses, WP_Query $query)
+{
+
+    global $wpdb;
+    $table_prefix = $wpdb->prefix;
+
+  //  echo "hook called";
+
+    if (!empty($_GET['stm_lat'])) {
+
+
+    $distance = 999999999;
+    if(!empty($_GET['distance'])){
+      $distance = $_GET['distance'];
+    }
+
+    $formula = '6378.137 * ACOS(COS(RADIANS(stm_lat_prefix.meta_value)) * COS(RADIANS(:lat)) * COS(RADIANS(stm_lng_prefix.meta_value) - RADIANS(:lng)) + SIN(RADIANS(stm_lat_prefix.meta_value)) * SIN(RADIANS(:lat)))';
+    $formula = strtr($formula, array(
+        ':lat' => floatval($_GET['stm_lat']),
+        ':lng' => floatval($_GET['stm_lng']),
+    ));
+
+    $clauses['fields'] .= ", ($formula) AS stm_distance";
+
+
+      $clauses['where'] .= " and ($formula) < ".$distance. "  ";
+
+
+//print_r($clauses['where']);
+
+    $clauses['join'] .= " INNER JOIN {$table_prefix}postmeta stm_lat_prefix ON ({$table_prefix}posts.ID = stm_lat_prefix.post_id AND stm_lat_prefix.meta_key = 'stm_lat_car_admin')";
+    $clauses['join'] .= " INNER JOIN {$table_prefix}postmeta stm_lng_prefix ON ({$table_prefix}posts.ID = stm_lng_prefix.post_id AND stm_lng_prefix.meta_key = 'stm_lng_car_admin')";
+
+    $clauses['orderby'] = 'stm_distance ASC, ' . $clauses['orderby'];
+
+  }
+
+  if(!empty($_GET['max_mileage']) && $_GET['max_mileage'] != '100000' && $_GET['min_mileage'] != '0'){
+        $min_mileage = $_GET['min_mileage'];
+        $max_mileage = $_GET['max_mileage'];
+        $clauses['where'] .= " and  (stm_mileage.meta_value > ".$min_mileage. " and   stm_mileage.meta_value < ". $max_mileage ." )";
+        $clauses['join'] .= " INNER JOIN {$table_prefix}postmeta stm_mileage ON ({$table_prefix}posts.ID = stm_mileage.post_id AND stm_mileage.meta_key = 'mileage') ";
+    }
+    if(!empty($_GET['max_price']) && $_GET['max_price'] != '100000' && $_GET['min_price'] != '0'){
+        $min_price = $_GET['min_price'];
+        $max_price = $_GET['max_price'];
+        $clauses['where'] .= " and  (stm_price.meta_value > ".$min_price. " and   stm_price.meta_value < ". $max_price ." )";
+        $clauses['join'] .= " INNER JOIN {$table_prefix}postmeta stm_price ON ({$table_prefix}posts.ID = stm_price.post_id AND stm_price.meta_key = 'price') ";
+    }
+
+
+//    if($query->get('orderby') == 'stm_distance'){
+
+  //  }
+  //  print_r($clauses);
+
+    return apply_filters('stm_listings_clauses_filter', $clauses);
+}
+
+
+// ini_set('display_errors', 1);
+// ini_set('display_startup_errors', 1);
+// error_reporting(E_ALL);
+
+
+function distance($lat1, $lon1, $lat2, $lon2, $unit) {
+  if (($lat1 == $lat2) && ($lon1 == $lon2)) {
+    return 0;
+  }
+  else {
+    $theta = $lon1 - $lon2;
+    $dist = sin(deg2rad($lat1)) * sin(deg2rad($lat2)) +  cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * cos(deg2rad($theta));
+    $dist = acos($dist);
+    $dist = rad2deg($dist);
+    $miles = $dist * 60 * 1.1515;
+    $unit = strtoupper($unit);
+
+    if ($unit == "K") {
+      return ($miles * 1.609344);
+    } else if ($unit == "N") {
+      return ($miles * 0.8684);
+    } else {
+      return $miles;
+    }
+  }
+}
+
+
+function get_taxonomy_hierarchy( $taxonomy, $parent = 0 ) {
+  //echo $taxonomy;
+  // only 1 taxonomy
+  $taxonomy = is_array( $taxonomy ) ? array_shift( $taxonomy ) : $taxonomy;
+  // get all direct descendants of the $parent
+  $terms = get_terms( $taxonomy, array( 'parent' => $parent ,'hide_empty' => false) );
+
+  // prepare a new array.  these are the children of $parent
+  // we'll ultimately copy all the $terms into this new array, but only after they
+  // find their own children
+  $children = array();
+  // go through all the direct descendants of $parent, and gather their children
+  foreach ( $terms as $term ){
+    // recurse to get the direct descendants of "this" term
+    //$term->children = get_taxonomy_hierarchy( $taxonomy, $term->term_id );
+
+    $newchild= array();
+    $termschild  = get_terms( $taxonomy, array( 'parent' => $term->term_id ,'hide_empty' => false) );
+    foreach ( $termschild as $termchild ){
+    // add the term to our new array
+        $newchild[ $termchild->term_id ]['name'] = $termchild->name;
+        $newchild[ $termchild->term_id ]['term_id'] = $termchild->term_id;
+        $newchild[ $termchild->term_id ]['child'] = $termchild->children;
+    }
+
+
+    // add the term to our new array
+    $children[ $term->term_id ]['name'] = $term->name;
+    $children[ $term->term_id ]['term_id'] = $term->term_id;
+    $term->children =  $newchild;
+    $children[ $term->term_id ]['child'] = $term->children;
+  }
+  // send the results back to the caller
+  return $children;
+}
+
+function get_taxonomy_hierarchy_product( $taxonomy, $parent = 0 ) {
+$host = "127.0.0.1:3306";
+$user = "bn_wordpress";
+$password = "b25b32f45a01e26c1eec323bd2901db14fc568812339ea362ff1f830612a3b62";
+$dbname = "bitnami_wordpress";
+//$host = "http://ls-7b0287db84e0c231403f05692ce0b52a7c47aaac.c4587ju9bgbf.us-east-2.rds.amazonaws.com:3306";
+//$user = "dbmasteruser";
+//$password = "b25b32f45a01e26c1eec323bd2901db14fc56881";
+//$dbname = "dbmaster";
+$id = '';
+
+$con = mysqli_connect($host, $user, $password,$dbname);
+
+
+  $sql = "select * from product_categories";
+
+
+
+
+
+
+          // run SQL statement
+          $result = mysqli_query($con,$sql);
+
+          $Categories =array();
+          for ($i=0 ; $i<mysqli_num_rows($result) ; $i++) {
+              $provider = mysqli_fetch_object($result);
+              if(!empty($provider->Next_Sub_Category)){
+              //  echo $provider->Next_Sub_Category;
+                $counterquery  = "select count(*) ct from product_data where 1=1 and (  Parent_Catgeory like '%".$provider->Next_Sub_Category."%' or Child_Category like '%".$provider->Next_Sub_Category."%' )";
+
+
+
+
+
+                $resultcount = mysqli_query($con,$counterquery);
+           $count  = mysqli_fetch_object($resultcount);
+       //   var_dump($count->ct);
+
+                //echo $provider->id;
+              if($count->ct > 0){
+                  $Sub_Category = $provider->Next_Sub_Category;
+                  $Categories[$provider->Main_Category][$provider->Sub_Category][$Sub_Category] = $count->ct;
+                }
+              }
+            }
+//echo "<pre>";
+//print_r($Categories);
+//echo "</pre>";
+            echo json_encode($Categories);
+die;
+  //echo $taxonomy;
+  // only 1 taxonomy
+  $taxonomy = is_array( $taxonomy ) ? array_shift( $taxonomy ) : $taxonomy;
+  // get all direct descendants of the $parent
+  $terms = get_terms( array(  'taxonomy' => $taxonomy, 'parent' => $parent ,'hide_empty' => false , 'orderby' => 'name',
+    'order' => 'ASE' ) );
+
+  // prepare a new array.  these are the children of $parent
+  // we'll ultimately copy all the $terms into this new array, but only after they
+  // find their own children
+  $children = array();
+  // go through all the direct descendants of $parent, and gather their children
+  foreach ( $terms as $term ){
+    // recurse to get the direct descendants of "this" term
+    //$term->children = get_taxonomy_hierarchy( $taxonomy, $term->term_id );
+
+    $newchild= array();
+    $termschild  = get_terms( $taxonomy, array( 'parent' => $term->term_id ,'hide_empty' => false) );
+    foreach ( $termschild as $termchild ){
+    // add the term to our new array
+
+
+            $newsubchild= array();
+            $termssubchild  = get_terms( $taxonomy, array( 'parent' => $termchild->term_id ,'hide_empty' => false) );
+            foreach ( $termssubchild as $termsubchild ){
+            // add the term to our new array
+                $newsubchild[ $termsubchild->term_id ]['name'] = $termsubchild->name;
+                $newsubchild[ $termsubchild->term_id ]['term_id'] = $termsubchild->term_id;
+             //   $newsubchild[ $termsubchild->term_id ]['child'] = $termsubchild->children;
+            }
+
+        $newchild[ $termchild->term_id ]['name'] = $termchild->name;
+        $newchild[ $termchild->term_id ]['term_id'] = $termchild->term_id;
+        $newchild->children =  $newsubchild;
+        $newchild[ $termchild->term_id ]['child'] = $newsubchild;
+
+    }
+
+
+    // add the term to our new array
+    $children[ $term->term_id ]['name'] = $term->name;
+    $children[ $term->term_id ]['term_id'] = $term->term_id;
+    $term->children =  $newchild;
+    $children[ $term->term_id ]['child'] = $term->children;
+  }
+  // send the results back to the caller
+  return $children;
+}
+
+function get_taxonomy_hierarchy_listing( $taxonomy, $parent = 0 ) {
+  //echo $taxonomy;
+  // only 1 taxonomy
+  $taxonomy = is_array( $taxonomy ) ? array_shift( $taxonomy ) : $taxonomy;
+  // get all direct descendants of the $parent
+  $terms = get_terms( $taxonomy, array( 'parent' => $parent ,'hide_empty' => true) );
+
+  // prepare a new array.  these are the children of $parent
+  // we'll ultimately copy all the $terms into this new array, but only after they
+  // find their own children
+  $children = array();
+  // go through all the direct descendants of $parent, and gather their children
+  foreach ( $terms as $term ){
+    // recurse to get the direct descendants of "this" term
+    //$term->children = get_taxonomy_hierarchy( $taxonomy, $term->term_id );
+
+    $newchild= array();
+    $termschild  = get_terms( $taxonomy, array( 'parent' => $term->term_id ,'hide_empty' => true) );
+    foreach ( $termschild as $termchild ){
+    // add the term to our new array
+        $newchild[ $termchild->term_id ]['name'] = $termchild->name;
+        $newchild[ $termchild->term_id ]['term_id'] = $termchild->term_id;
+        $newchild[ $termchild->term_id ]['child'] = $termchild->children;
+    }
+
+
+    // add the term to our new array
+    $children[ $term->term_id ]['name'] = $term->name;
+    $children[ $term->term_id ]['term_id'] = $term->term_id;
+    $term->children =  $newchild;
+    $children[ $term->term_id ]['child'] = $term->children;
+  }
+  // send the results back to the caller
+  return $children;
+}
+
+
+//header("Access-Control-Allow-Headers: X-Requested-With");
+
+$host = "127.0.0.1:3306";
+$user = "bn_wordpress";
+$password = "b25b32f45a01e26c1eec323bd2901db14fc568812339ea362ff1f830612a3b62";
+$dbname = "bitnami_wordpress";
+$id = '';
+
+$con = mysqli_connect($host, $user, $password,$dbname);
+
+$method = $_REQUEST['action'];
+$request = explode('/', trim($_SERVER['PATH_INFO'],'/'));
+
+
+if (!$con) {
+  die("Connection failed: " . mysqli_connect_error());
+}
+
+
+switch ($method) {
+    case 'getdata':
+
+
+          $page = $_GET['page'];
+
+
+          $select = "select * from THrtRproduct_list";
+          $selectcount = "select count(*) ct from THrtRproduct_list";
+          $page = $page * 1;
+          $where = " where 1=1 ";
+          $limit = " limit  ".$page.", 9";
+          if(!empty($_GET['years'])){
+            //$models = implode(",", $_GET['models']);
+            //$models = array_map('intval', explode(',', $_GET['models']));
+            $years = implode("','",$_GET['years']);
+             $where .= "and product_year in ('".$years."')";
+          }
+          if(!empty($_GET['models'])){
+            //$models = implode(",", $_GET['models']);
+            //$models = array_map('intval', explode(',', $_GET['models']));
+            $models = implode("','",$_GET['models']);
+             $where .= "and product_model in ('".$models."')";
+          }
+          $sql = $select.$where.$limit;
+          $sqlselect = $selectcount.$where;
+          // run SQL statement
+          $result = mysqli_query($con,$sql);
+
+
+
+          if (!$result) {
+            http_response_code(404);
+            die(mysqli_error($con));
+          }
+          $resultcount = mysqli_query($con,$sqlselect);
+           $count  = mysqli_fetch_object($resultcount);
+          //var_dump($count->ct);
+
+          $data = array();
+          $total = $count->ct;
+          $currentpage = 1;
+          $data['totalItems'] = $total;
+          $data['totalPages'] =round($total/10);
+          $data['currentPage'] = $currentpage;
+          $data['products'] = array();
+
+            for ($i=0 ; $i<mysqli_num_rows($result) ; $i++) {
+              $data['products'][] =  mysqli_fetch_object($result);
+            }
+
+          echo json_encode($data);
+
+      break;
+
+      case 'getprovider':
+
+          $Region= "";
+
+          if(empty($_REQUEST['lat'])){
+                  $Region= "USA";
+                          // set IP address and API access key
+                  $ip = getIp();
+                  $api_result = '';
+                  $api_result =  get_transient( 'IPNEW_'.$ip );
+                //  var_dump($api_result);
+                  if ( empty( $api_result) ) {
+                  // this code runs when there is no valid transient set
+                      //echo "API called";
+
+
+
+                   // $ip = '2.58.45.2';
+                    $access_key = 'cd7730575c2f30aa0da956bb7a3d9912';
+
+                        // Initialize CURL:
+                    //echo 'http://ip-api.com/json/'.$ip;
+                    $ch = curl_init('http://ip-api.com/json/'.$ip);
+                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+                        // Store the data:
+                    $json = curl_exec($ch);
+                    curl_close($ch);
+
+                        // Decode JSON response:
+                    $api_result = json_decode($json, true);
+                    set_transient( 'IPNEW_'.$ip, $api_result, YEAR_IN_SECONDS );
+                }
+                 //print_r($api_result);
+                  //$_SESSION['country'] = $api_result['country_code'];
+               $Region =  $api_result['countryCode'];
+          }
+
+          $page = $_GET['page'];
+          if(empty($page)){
+            $page = 0;
+          }
+
+          $latlong = "";
+
+          if(!empty($_REQUEST['lat'])){
+            $distance  = $_REQUEST['distance'];
+            if(empty($distance)){
+              $distance = 10000000;
+            }
+            $distance = $distance * 1.6;
+            $latitude = $_REQUEST['lat'];
+            $longitude = $_REQUEST['lng'];
+            $latlong = " , (((acos(sin((".$latitude."*pi()/180)) * sin((`stm_dealer_location_lat`*pi()/180)) + cos((".$latitude."*pi()/180)) * cos((`stm_dealer_location_lat`*pi()/180)) * cos(((".$longitude."- `stm_dealer_location_lng`)*pi()/180)))) * 180/pi()) * 60 * 1.1515) as distance_in_km";
+        }
+
+          $select = "select * ". $latlong ." from provider_live";
+         $selectcount = "select * ". $latlong ." from provider_live";
+          $page = ($page) * 9;
+          $where = " where 1=1 ";
+          $having = "";
+
+          if(!empty($Region)  && $_REQUEST['restofworld'] == 'false' && empty($_REQUEST['keyword'])){
+            $where .= " and billing_country LIKE '".$Region."' ";
+          }
+
+          $orderby = "";
+          if(!empty($_REQUEST['lat'])){
+             $orderby = " order by distance_in_km ";
+             $having .= " having  distance_in_km < ".$distance . " ";
+          }
+
+
+          $limit = " limit  ".$page.", 9";
+          if(!empty($_GET['years'])){
+            //$models = implode(",", $_GET['models']);
+            //$models = array_map('intval', explode(',', $_GET['models']));
+            $years = implode("','",$_GET['years']);
+             $where .= "and product_year in ('".$years."')";
+          }
+          if(!empty($_GET['service_categories'])){
+            //$models = implode(",", $_GET['models']);
+            //$models = array_map('intval', explode(',', $_GET['models']));
+            $service_categories = $_GET['service_categories'];
+            $service_query = array();
+            foreach($service_categories as $service_category){
+             $service_query[] = " service_category like  '%".$service_category."%' ";
+            }
+            $where .= " and ( ".implode(" or ",$service_query)." )";
+          }
+          if(!empty($_GET['brands'])){
+            //$models = implode(",", $_GET['models']);
+            //$models = array_map('intval', explode(',', $_GET['models']));
+            $service_categories = $_GET['brands'];
+            foreach($service_categories as $service_category)
+             $where .= " and   distributors like  '%".$service_category."%' ";
+          }
+
+
+          if(!empty($_REQUEST['keyword'])){
+           $where .= " and   ( Username like  '%".trim($_REQUEST['keyword'])."%' or  stm_company_name like  '%".trim($_REQUEST['keyword'])."%') ";
+          }
+
+          $sql = $select.$where.$having.$orderby.$limit;
+          $sqlselect = $selectcount.$where.$having;
+          // run SQL statement
+          $result = mysqli_query($con,$sql);
+          $resultcount = mysqli_query($con,$sqlselect);
+
+
+          if (!$result) {
+            http_response_code(404);
+            die(mysqli_error($con));
+          }
+           $count  = mysqli_num_rows($resultcount);
+          //var_dump($count);
+
+          $data = array();
+          $total = $count;
+          $currentpage = 1;
+          $data['totalItems'] = $total;
+          $length = 5;
+          $string = substr(str_repeat(0, $length).$total , - $length);
+          $data['totalItemsString'] = str_split($string,1);
+          $data['totalPages'] =round($total/10);
+          $data['currentPage'] = $currentpage;
+          $data['products'] = array();
+          if ( is_user_logged_in() ) {
+                $data['login'] = 1;
+              }else{
+                $data['login'] = 0;
+              }
+
+            for ($i=0 ; $i<mysqli_num_rows($result) ; $i++) {
+              $provider = mysqli_fetch_object($result);
+              //echo $provider->Categories;
+              $catname = array();
+              $catchildname = array();
+              $newProvider ="";
+              $newProvider->id  = $provider->id;
+
+              $newProvider->user_id  =  $provider->user_id;
+              $newProvider->Region = $provider->billing_country;
+              $membership_level = pmpro_getMembershipLevelForUser($provider->user_id);
+              $level_id = $membership_level->ID;
+              $newProvider->level_id = $level_id;
+              $authorurl =get_author_posts_url($provider->user_id);
+
+              $link ='';
+              $linkclass = '';
+              $profiletitle = '';
+              if( $level_id == 8 ){
+                    $link = $authorurl;
+                    $target = '_blank';
+                    $newProvider->target = $target;
+                    $linkclass = '';
+                    $profiletitle = 'View Profile';
+
+               }else{
+                    $link = '#';
+                    $target = '';
+                    $newProvider->target = $target;
+                    $linkclass = 'disable-links';
+                    $profiletitle = '';
+              }
+
+
+
+
+              $newProvider->link = $link;
+              $newProvider->linkclass = $linkclass;
+              $newProvider->profiletitle = $profiletitle;
+              if(!empty($provider->stm_company_name)){
+                     $newProvider->Business_Name = $provider->stm_company_name;
+              }else{
+                   $newProvider->Business_Name = $provider->Username;
+              }
+
+              $claimlink = "";
+              if( $level_id == 7 ){
+                    $claimlink=  get_site_url().'/claim-your-business/?userid='. $provider->user_id.'&sname='.rawurlencode(htmlspecialchars($newProvider->Business_Name));
+              }
+
+              $newProvider->claimlink = $claimlink;
+
+              $user_id = get_current_user_id();
+
+              $fav_provider = get_user_meta($user_id,'fav_provider',true);
+
+              if(in_array($provider->user_id,$fav_provider)){
+               $newProvider->fav  =  "Remove from my dashboard";
+               $newProvider->AddFav = 'added-fav';
+              }else{
+               $newProvider->fav  =  "Add to my dashboard";
+               $newProvider->AddFav = '';
+              }
+              
+
+              $newProvider->Description = $provider->stm_seller_notes;
+              $newProvider->Street = $provider->stm_dealer_location;
+              $newProvider->Town = $provider->billing_city;
+
+              if(empty($provider->hd_state)){
+                  $newProvider->state = $provider->billing_state;
+              }else{
+                  $newProvider->state = $provider->hd_state;
+              }
+
+              $newProvider->zipcode = $provider->billing_postcode;
+              $newProvider->email = $provider->{'User Email'};
+              $newProvider->PhoneNumber = $provider->billing_phone;
+              $newProvider->Website = $provider->stm_website_url;
+              $newProvider->Image_file_name = $provider->stm_dealer_logo;
+              if($provider->distance_in_km){
+                $newProvider->distance = "(".round($provider->distance_in_km  * 0.62137119,2)."m)";
+              }else{
+                $newProvider->distance = "";
+              }
+
+
+              $newProvider->stm_dealer_location_lat = preg_replace("/[a-zA-Z]/", "", $provider->stm_dealer_location_lat);
+              $newProvider->stm_dealer_location_lng =  preg_replace("/[a-zA-Z]/", "", $provider->stm_dealer_location_lng);
+              if(!empty($provider->my_offer_id)){
+                $promotion = $provider->my_offer_id;
+                $newProvider->my_offer_id = $provider->my_offer_id;
+
+
+                $newProvider->offer_title =  get_the_title($promotion);
+                $newProvider->offer_details = get_post_meta($promotion,'offer_details', true);
+                $newProvider->link_to_offer = get_post_meta($promotion,'link_to_offer', true);
+                $newProvider->offer_end_date = get_post_meta($promotion,'offer_end_date', true);
+                $date = new DateTime($newProvider->offer_end_date);
+                $newProvider->offer_end_date = $date->format('m-d-Y');
+                $newProvider->offer_image = wp_get_attachment_url(get_post_meta($promotion,'offer_image', true));
+                 $terms = get_the_terms( $promotion, 'offer-categories' );
+                  $promooffer = array();
+                if ( $terms && ! is_wp_error( $terms ) ) {
+
+
+                    foreach ( $terms as $term ) {
+                        $promooffer[] = $term->name;
+                    }
+                }
+                $newProvider->promooffer = $promooffer;
+
+
+              }
+
+              if(!empty($provider->service_category)){
+              //$Categories = explode("," ,$provider->Categories);
+                $Categories = unserialize($provider->service_category);
+              //print_r($Categories);
+
+              foreach($Categories as $Category){
+                //echo $Category;
+                $term = get_term( $Category );
+                //print_r($term);
+                if($term->name){
+
+                //print_r($term);
+                if($term->parent == 0 ){
+                  $catname[] = $term->name;
+                  }else{
+                  $catchildname[] = $term->name;
+                  }
+
+                }
+              }
+
+
+              }
+              $provider->Categories= $catname;
+              $provider->Categorieschild= $catchildname;
+              $newProvider->Categories= $catname;
+              $newProvider->Categorieschild= $catchildname;
+
+
+              if(!empty($provider->distributors)){
+
+              //$brands = explode("," ,$provider->brands);
+              $brands = unserialize($provider->distributors);
+              //print_r($Categories);
+              $brandsnames = array();
+
+              foreach($brands as $brand){
+                //echo $Category;
+                //$term = get_term( $brand );
+                //print_r($term);
+
+              $brandsnames[] = get_field('logo',get_term( $brand ));
+
+
+                }
+
+              $provider->brandsname= $brandsnames;
+              $newProvider->brandsname= $brandsnames;
+              }else{
+                $provider->brandsname= '';
+                $newProvider->brandsname= '';
+              }
+              $ratings = stm_get_dealer_marks($provider->user_id);
+              if (!empty($ratings['average'])){
+                  $provider->star = $ratings['average'];
+              }else{
+                $newProvider->star = 0;
+              }
+
+
+              $data['products'][] =  $newProvider;
+            }
+
+
+          echo json_encode($data);
+
+      break;
+
+
+
+case 'getproductdata':
+      $actual_link = "http://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
+      $data =  get_transient($actual_link);
+      //if(!empty($data)){
+      //  echo $data;
+      //  die;
+     // }
+
+          $Region= "";
+
+          if(empty($_REQUEST['lat'])){
+                  $Region= "USA";
+                          // set IP address and API access key
+                  $ip = getIp();
+                  $api_result = '';
+                  $api_result =  get_transient( 'IPNEW_'.$ip );
+                //  var_dump($api_result);
+                  if ( empty( $api_result) ) {
+                  // this code runs when there is no valid transient set
+                      //echo "API called";
+
+
+
+                   // $ip = '2.58.45.2';
+                    $access_key = 'cd7730575c2f30aa0da956bb7a3d9912';
+
+                        // Initialize CURL:
+                    //echo 'http://ip-api.com/json/'.$ip;
+                    $ch = curl_init('http://ip-api.com/json/'.$ip);
+                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+                        // Store the data:
+                    $json = curl_exec($ch);
+                    curl_close($ch);
+
+                        // Decode JSON response:
+                    $api_result = json_decode($json, true);
+                    set_transient( 'IPNEW_'.$ip, $api_result, YEAR_IN_SECONDS );
+                }
+                 //print_r($api_result);
+                  //$_SESSION['country'] = $api_result['country_code'];
+               $Region =  $api_result['countryCode'];
+          }
+
+          $page = $_GET['page'];
+          if(empty($page)){
+            $page = 0;
+          }
+
+          $latlong = "";
+
+          if(!empty($_REQUEST['lat'])){
+            $distance  = $_REQUEST['distance'];
+            if(empty($distance)){
+              $distance = 10000000;
+            }
+            $distance = $distance * 1.6;
+            $latitude = $_REQUEST['lat'];
+            $longitude = $_REQUEST['lng'];
+            $latlong = " , (((acos(sin((".$latitude."*pi()/180)) * sin((`stm_dealer_location_lat`*pi()/180)) + cos((".$latitude."*pi()/180)) * cos((`stm_dealer_location_lat`*pi()/180)) * cos(((".$longitude."- `stm_dealer_location_lng`)*pi()/180)))) * 180/pi()) * 60 * 1.1515) as distance_in_km";
+        }
+
+          $select = "select * ". $latlong ." from product_data";
+
+
+         $selectcount = "select * ". $latlong ." from product_data";
+          $page = ($page) * 40;
+          $where['main'] = " where 1=1 ";
+          $having = "";
+
+          if(!empty($Region)  && $_REQUEST['restofworld'] == 'false' && empty($_REQUEST['keyword'])){
+            $RegionWhere =" and Product_Region LIKE '".$Region."' ";
+            $where[] = $RegionWhere;
+          }
+
+          $orderby = " order by RAND() ";
+          if(!empty($_REQUEST['lat'])){
+             $orderby = " order by distance_in_km ";
+             $having .= " having  distance_in_km < ".$distance . " ";
+          }
+
+
+          $limit = " limit  ".$page.", 40";
+
+          if(!empty($_GET['service_categories'])){
+            //$models = implode(",", $_GET['models']);
+            //$models = array_map('intval', explode(',', $_GET['models']));
+            $service_categories = $_GET['service_categories'];
+            $service_query = array();
+            foreach($service_categories as $service_category){
+             $service_query[] = " Parent_Catgeory like  '%".$service_category."%' ";
+              $service_query[] = " Child_Category like  '%".$service_category."%' ";
+            }
+            $cat_where = " and ( ".implode(" or ",$service_query)." )";
+            $where['cat'] = $cat_where;
+          }
+          if(!empty($_GET['Region'])){
+
+            $service_query = array();
+
+            $service_categories = $_GET['Region'];
+            foreach($service_categories as $service_category){
+             $service_query[] = " Product_Region like  '%".$service_category."%' ";
+            }
+            $RegionWhere = " and ( ".implode(" or ",$service_query)." )";
+           $where['region'] = $RegionWhere;
+
+          }
+
+          if(!empty($_GET['Seller'])){
+            //$models = implode(",", $_GET['models']);
+            //$models = array_map('intval', explode(',', $_GET['models']));
+            $service_categories = $_GET['Seller'];
+            $service_query = array();
+            foreach($service_categories as $service_category){
+             $service_query[] = " Product_Brand like  '%".$service_category."%' ";
+            }
+            $seller_where = " and ( ".implode(" or ",$service_query)." )";
+            $where['seller'] =  $seller_where;
+
+
+          }
+
+          if(!empty($_GET['Year'])){
+            //$models = implode(",", $_GET['models']);
+            //$models = array_map('intval', explode(',', $_GET['models']));
+            $service_categories = $_GET['Year'];
+            $service_query = array();
+            foreach($service_categories as $service_category){
+             $service_query[] = " Model_Year like  '%".$service_category."%' ";
+            }
+            $yearwhere = " and ( ".implode(" or ",$service_query)." )";
+            $where['year'] = $yearwhere;
+
+
+          }
+
+          if(!empty($_GET['Model'])){
+            //$models = implode(",", $_GET['models']);
+            //$models = array_map('intval', explode(',', $_GET['models']));
+            $service_categories = $_GET['Model'];
+            $service_query = array();
+            foreach($service_categories as $service_category){
+             $service_query[] = " Model like  '%".$service_category."%' ";
+            }
+            $modelwhere = " and ( ".implode(" or ",$service_query)." )";
+            $where['model'] = $modelwhere;
+
+
+          }
+
+          if(!empty($_GET['ModelRange'])){
+            //$models = implode(",", $_GET['models']);
+            //$models = array_map('intval', explode(',', $_GET['models']));
+            $service_categories = $_GET['ModelRange'];
+            $service_query = array();
+            foreach($service_categories as $service_category){
+             $service_query[] = " Model_Range like  '%".$service_category."%' ";
+            }
+            $model_rangewhere = " and ( ".implode(" or ",$service_query)." )";
+            $where['modelrange'] = $model_rangewhere;
+
+
+          }
+
+
+          if(!empty($_GET['Condition'])){
+            //$models = implode(",", $_GET['models']);
+            //$models = array_map('intval', explode(',', $_GET['models']));
+            $service_categories = $_GET['Condition'];
+            $service_query = array();
+            foreach($service_categories as $service_category){
+             $service_query[] = " Product_Condition like  '%".$service_category."%' ";
+            }
+            $conditionwhere = " and ( ".implode(" or ",$service_query)." )";
+            $where['condition'] = $conditionwhere;
+
+          }
+
+
+
+
+          if(!empty($_REQUEST['keyword'])){
+            $keywordwhere =" and   ( Product_Title like  '%".trim($_REQUEST['keyword'])."%'
+           or  Product_Title like  '%".trim($_REQUEST['keyword'])."%'
+            or  Model like  '%".trim($_REQUEST['keyword'])."%'
+            or  Product_Brand like  '%".trim($_REQUEST['keyword'])."%'
+            or  Other_Man_Part_No like  '%".trim($_REQUEST['keyword'])."%'
+            or  Harley_OEM like  '%".trim($_REQUEST['keyword'])."%'
+            or  Model_Fitment like  '%".trim($_REQUEST['keyword'])."%'
+            ) ";
+           $where['keyword'] = $keywordwhere;
+
+          }
+
+
+          $wherecondition  = implode(' ' , $where);
+         $cat_query_where = $where;
+         unset($cat_query_where['cat']);
+         $cat_query_where  = implode(' ' , $cat_query_where);
+
+
+
+         $year_query_where = $where;
+         unset($year_query_where['year']);
+         $year_query_where  = implode(' ' , $year_query_where);
+
+
+
+         $sql = $select.$wherecondition.$having.$orderby.$limit;
+         $sqlselect = $selectcount.$wherecondition.$having;
+
+
+         $sql_cat_select = $selectcount.$cat_query_where.$having;
+
+         $sql_year_select = "select Model_Year  from product_data ".$year_query_where.$having;
+
+          // run SQL statement
+          $result = mysqli_query($con,$sql);
+          $resultcount = mysqli_query($con,$sqlselect);
+          $result_cat_select = mysqli_query($con,$sql_cat_select);
+
+
+
+          if (!$result) {
+            http_response_code(404);
+            die(mysqli_error($con));
+          }
+           $count  = mysqli_num_rows($resultcount);
+
+           $Categories = array();
+
+           for ($i=0 ; $i<mysqli_num_rows($result_cat_select) ; $i++) {
+              $provider = mysqli_fetch_object($result_cat_select);
+              $Master_Category = trim($provider->Master_Category);
+              $Parent_Catgeory = trim($provider->Parent_Catgeory);
+              $Child_Category = trim($provider->Child_Category);
+              if(empty($Categories[$Master_Category][$Parent_Catgeory][$Child_Category])){
+            $Categories[$Master_Category][$Parent_Catgeory][$Child_Category] = 1;
+            }else{
+          $Categories[$Master_Category][$Parent_Catgeory][$Child_Category] = $Categories[$Master_Category][$Parent_Catgeory][$Child_Category] + 1;
+            }
+
+            }
+
+
+            $year_query_where = $where;
+            unset($year_query_where['year']);
+            $year_query_where  = implode(' ' , $year_query_where);
+            $sql_year_select = "select Model_Year  from product_data ".$year_query_where.$having;
+            $result_year_select = mysqli_query($con,$sql_year_select);
+            $years = array();
+
+           for ($i=0 ; $i<mysqli_num_rows($result_year_select) ; $i++) {
+              $model = mysqli_fetch_object($result_year_select);
+              if(!empty($model->Model_Year))
+                if(empty($years[$model->Model_Year])){
+                  $years[$model->Model_Year] =  1;
+                }else{
+                  $years[$model->Model_Year] =  $years[$model->Model_Year] + 1;
+                }
+
+
+            }
+
+            $region_query_where = $where;
+            unset($region_query_where['region']);
+            $region_query_where  = implode(' ' , $region_query_where);
+            $sql_region_select = "select Product_Region  from product_data ".$region_query_where.$having;
+            $result_region_select = mysqli_query($con,$sql_region_select);
+
+            $regions = array();
+
+           for ($i=0 ; $i<mysqli_num_rows($result_region_select) ; $i++) {
+              $model = mysqli_fetch_object($result_region_select);
+              if(!empty($model->Product_Region))
+                if(empty($regions[$model->Product_Region])){
+                  $regions[$model->Product_Region] =  1;
+                }else{
+                  $regions[$model->Product_Region] =  $regions[$model->Product_Region] + 1;
+                }
+
+
+            }
+
+            $model_query_where = $where;
+            unset($model_query_where['model']);
+            $model_query_where  = implode(' ' , $model_query_where);
+            $sql_model_select = "select Model  from product_data ".$model_query_where.$having;
+            $result_model_select = mysqli_query($con,$sql_model_select);
+
+            $models = array();
+
+           for ($i=0 ; $i<mysqli_num_rows($result_model_select) ; $i++) {
+              $model = mysqli_fetch_object($result_model_select);
+              if(!empty($model->Model))
+                if(empty($models[$model->Model])){
+                  $models[$model->Model] =  1;
+                }else{
+                  $models[$model->Model] =  $models[$model->Model] + 1;
+                }
+            }
+
+            $modelrange_query_where = $where;
+            unset($modelrange_query_where['modelrange']);
+            $modelrange_query_where  = implode(' ' , $modelrange_query_where);
+            $sql_modelrange_select = "select Model_Range  from product_data ".$modelrange_query_where.$having;
+            $result_modelrange_select = mysqli_query($con,$sql_modelrange_select);
+
+            $modelranges = array();
+
+           for ($i=0 ; $i<mysqli_num_rows($result_modelrange_select) ; $i++) {
+              $model = mysqli_fetch_object($result_modelrange_select);
+              if(!empty($model->Model_Range))
+                if(empty($modelranges[$model->Model_Range])){
+                  $modelranges[$model->Model_Range] =  1;
+                }else{
+                  $modelranges[$model->Model_Range] =  $modelranges[$model->Model_Range] + 1;
+                }
+            }
+
+
+
+           $condition_query_where = $where;
+            unset($condition_query_where['condition']);
+            $condition_query_where  = implode(' ' , $condition_query_where);
+            $sql_condition_select = "select Product_Condition  from product_data ".$condition_query_where.$having;
+            $result_condition_select = mysqli_query($con,$sql_condition_select);
+
+            $conditions = array();
+
+           for ($i=0 ; $i<mysqli_num_rows($result_condition_select) ; $i++) {
+              $model = mysqli_fetch_object($result_condition_select);
+              if(!empty($model->Product_Condition))
+                if(empty($conditions[$model->Product_Condition])){
+                  $conditions[$model->Product_Condition] =  1;
+                }else{
+                  $conditions[$model->Product_Condition] =  $conditions[$model->Product_Condition] + 1;
+                }
+            }
+
+
+            $brand_query_where = $where;
+            unset($brand_query_where['seller']);
+            $brand_query_where  = implode(' ' , $brand_query_where);
+            $sql_brand_select = "select Product_Brand  from product_data ".$brand_query_where.$having;
+            $result_brand_select = mysqli_query($con,$sql_brand_select);
+
+
+            $brands = array();
+
+           for ($i=0 ; $i<mysqli_num_rows($result_brand_select) ; $i++) {
+              $model = mysqli_fetch_object($result_brand_select);
+              if(!empty($model->Product_Brand))
+                if(empty($brands[$model->Product_Brand])){
+                  $brands[$model->Product_Brand] =  1;
+                }else{
+                  $brands[$model->Product_Brand] =  $brands[$model->Product_Brand] + 1;
+                }
+            }
+
+          //var_dump($count);
+
+          $data = array();
+          $total = $count;
+          $currentpage = 1;
+          $data['totalItems'] = $total;
+          $length = 5;
+          $string = substr(str_repeat(0, $length).$total , - $length);
+          $data['totalItemsString'] = str_split($string,1);
+          $data['totalPages'] =round($total/40);
+          $data['currentPage'] = $currentpage;
+          $data['products'] = array();
+          if ( is_user_logged_in() ) {
+                $data['login'] = 1;
+              }else{
+                $data['login'] = 0;
+              }
+
+
+
+            for ($i=0 ; $i<mysqli_num_rows($result) ; $i++) {
+              $provider = mysqli_fetch_object($result);
+
+
+              $data['products'][] =  $provider;
+            }
+           // echo "<pre>";
+           // print_r($Categories);
+           // echo "</pre>";
+            $data['Categories'] = $Categories;
+            $data['years'] = $years;
+            $data['regions'] = $regions;
+            $data['models'] = $models;
+            $data['modelranges'] = $modelranges;
+            $data['conditions'] = $conditions;
+            $data['brands'] = $brands;
+
+
+
+set_transient($actual_link,json_encode($data));
+
+          echo json_encode($data);
+
+      break;
+
+
+
+    case 'get_service_category':
+
+    $catdata = get_taxonomy_hierarchy('service_category');
+    //print_r($catdata);
+    $json =  json_encode($catdata);
+    echo $json = str_replace('&amp;', '&', $json);
+    break;
+
+    case 'get_load_data':
+    $catdata =  array();
+    if ( is_user_logged_in() ) {
+                $catdata['login'] = 1;
+              }else{
+                $catdata['login'] = 0;
+              }
+
+
+    //print_r($catdata);
+    echo json_encode($catdata);
+
+    break;
+
+    case 'get_product_category':
+
+    $catdata = get_taxonomy_hierarchy_product('product_cat');
+    //print_r($catdata);
+    echo json_encode($catdata);
+
+    break;
+
+    case 'get_load_data':
+    $catdata =  array();
+    if ( is_user_logged_in() ) {
+      $catdata['login'] = 1;
+    }else{
+       $catdata['login'] = 0;
+    }
+
+
+    //print_r($catdata);
+    echo json_encode($catdata);
+
+    break;
+
+    case 'get_ads_data':
+
+
+      $Region= "USA";
+      $ads_group = $_REQUEST['ads_group'];
+                          // set IP address and API access key
+                  $ip = getIp();
+                  $api_result = '';
+                  $api_result =  get_transient( 'IPNEW_'.$ip );
+                //  var_dump($api_result);
+                  if ( empty( $api_result) ) {
+                  // this code runs when there is no valid transient set
+                      //echo "API called";
+
+
+
+                   // $ip = '2.58.45.2';
+                    $access_key = 'cd7730575c2f30aa0da956bb7a3d9912';
+
+                        // Initialize CURL:
+                    //echo 'http://ip-api.com/json/'.$ip;
+                    $ch = curl_init('http://ip-api.com/json/'.$ip);
+                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+                        // Store the data:
+                    $json = curl_exec($ch);
+                    curl_close($ch);
+
+                        // Decode JSON response:
+                    $api_result = json_decode($json, true);
+                    set_transient( 'IPNEW_'.$ip, $api_result, YEAR_IN_SECONDS );
+                }
+                 //print_r($api_result);
+                  //$_SESSION['country'] = $api_result['country_code'];
+               $Region =  $api_result['country'];
+
+
+ $args = array('post_type' => 'ads',
+        'tax_query' => array(
+            array(
+                'taxonomy' => 'ads-groups',
+                'field' => 'term_id',
+                'terms' => $ads_group,
+            ),
+        ),
+     );
+
+ $return = array();
+
+     $loop = new WP_Query($args);
+     if($loop->have_posts()) {
+
+
+        while($loop->have_posts()) : $loop->the_post();
+             $post_id = get_the_ID();
+             $link = get_field('ads_link');
+             $all_locations = get_field('all_locations');
+             $tracking_code = get_field('tracking_code');
+             //print_r($all_locations);
+             $regions = get_field('region');
+             //print_r($regions);
+             $regionarray = array();
+             foreach($regions as $reg){
+              $term = get_term( $reg );
+        $regionarray[] =  $term->name;
+             }
+
+
+             $url = wp_get_attachment_url( get_post_thumbnail_id($post_id), 'full' );
+             if($all_locations || in_array($Region,$regionarray)){
+              $ads_data = array();
+              $ads_data['link'] = $link;
+              $ads_data['url'] = $url;
+              $ads_data['tracking'] = $tracking_code;
+               $return[] = $ads_data;
+           }
+        endwhile;
+     }
+
+
+
+
+    echo json_encode($return);
+
+    //    return $return;
+
+    break;
+    case 'get_product_region':
+
+    $select = "select distinct Product_Region from product_data";
+          $sql = $select;
+
+          // run SQL statement
+          $result = mysqli_query($con,$sql);
+        //  $resultcount = mysqli_query($con,$sqlselect);
+
+
+          if (!$result) {
+            http_response_code(404);
+            die(mysqli_error($con));
+          }
+
+
+          $data = array();
+
+          //$data['totalItems'] = $total;
+          //$data['totalPages'] =round($total/10);
+          //$data['currentPage'] = $currentpage;
+          for ($i=0 ; $i<mysqli_num_rows($result) ; $i++) {
+            $model = mysqli_fetch_object($result);
+            $data[] =  $model->Product_Region;
+          }
+          echo json_encode($data);
+
+    break;
+
+
+
+
+
+  case 'get_product_Condition':
+
+    $select = "select distinct Product_Condition  from product_data";
+          $sql = $select;
+
+          // run SQL statement
+          $result = mysqli_query($con,$sql);
+        //  $resultcount = mysqli_query($con,$sqlselect);
+
+
+          if (!$result) {
+            http_response_code(404);
+            die(mysqli_error($con));
+          }
+
+
+          $data = array();
+
+          //$data['totalItems'] = $total;
+          //$data['totalPages'] =round($total/10);
+          //$data['currentPage'] = $currentpage;
+          for ($i=0 ; $i<mysqli_num_rows($result) ; $i++) {
+            $model = mysqli_fetch_object($result);
+            $data[] =  $model->Product_Condition;
+          }
+          echo json_encode($data);
+
+    break;
+
+
+
+
+        case 'get_product_seller':
+
+      $select = "select distinct Product_Brand  from product_data";
+          $sql = $select;
+
+          // run SQL statement
+          $result = mysqli_query($con,$sql);
+        //  $resultcount = mysqli_query($con,$sqlselect);
+
+
+          if (!$result) {
+            http_response_code(404);
+            die(mysqli_error($con));
+          }
+
+
+          $data = array();
+
+          //$data['totalItems'] = $total;
+          //$data['totalPages'] =round($total/10);
+          //$data['currentPage'] = $currentpage;
+          for ($i=0 ; $i<mysqli_num_rows($result) ; $i++) {
+            $model = mysqli_fetch_object($result);
+            if(!empty($model->Product_Brand))
+            $data[] =  $model->Product_Brand;
+          }
+          echo json_encode($data);
+
+    break;
+
+
+     case 'get_product_model_range':
+
+    $select = "select distinct Model_Range  from product_data";
+          $sql = $select;
+
+          // run SQL statement
+          $result = mysqli_query($con,$sql);
+        //  $resultcount = mysqli_query($con,$sqlselect);
+
+
+          if (!$result) {
+            http_response_code(404);
+            die(mysqli_error($con));
+          }
+
+
+          $data = array();
+
+          //$data['totalItems'] = $total;
+          //$data['totalPages'] =round($total/10);
+          //$data['currentPage'] = $currentpage;
+          for ($i=0 ; $i<mysqli_num_rows($result) ; $i++) {
+            $model = mysqli_fetch_object($result);
+            if(!empty($model->Model_Range))
+            $data[] =  $model->Model_Range;
+          }
+          echo json_encode($data);
+
+    break;
+
+
+  case 'get_product_model_year':
+
+    $select = "select distinct Model_Year  from product_data";
+          $sql = $select;
+
+          // run SQL statement
+          $result = mysqli_query($con,$sql);
+        //  $resultcount = mysqli_query($con,$sqlselect);
+
+
+          if (!$result) {
+            http_response_code(404);
+            die(mysqli_error($con));
+          }
+
+
+          $data = array();
+
+          //$data['totalItems'] = $total;
+          //$data['totalPages'] =round($total/10);
+          //$data['currentPage'] = $currentpage;
+          for ($i=0 ; $i<mysqli_num_rows($result) ; $i++) {
+            $model = mysqli_fetch_object($result);
+            if(!empty($model->Model_Year))
+            $data[] =  $model->Model_Year;
+          }
+          echo json_encode($data);
+
+    break;
+
+
+    case 'get_product_model_model':
+
+    $select = "select distinct Model  from product_data";
+          $sql = $select;
+
+          // run SQL statement
+          $result = mysqli_query($con,$sql);
+        //  $resultcount = mysqli_query($con,$sqlselect);
+
+
+          if (!$result) {
+            http_response_code(404);
+            die(mysqli_error($con));
+          }
+
+
+          $data = array();
+
+          //$data['totalItems'] = $total;
+          //$data['totalPages'] =round($total/10);
+          //$data['currentPage'] = $currentpage;
+          for ($i=0 ; $i<mysqli_num_rows($result) ; $i++) {
+            $model = mysqli_fetch_object($result);
+            if(!empty($model->Model))
+            $data[] =  $model->Model;
+          }
+          echo json_encode($data);
+
+    break;
+
+
+
+    case 'get_distributors':
+
+    $catdata = get_taxonomy_hierarchy('distributors');
+    //print_r($catdata);
+    echo json_encode($catdata);
+
+    break;
+
+    case 'update_user_fav':
+    $_REQUEST['user_type'] = "fav_provider";
+
+    update_user_fav();
+    //print_r($catdata);
+    //echo json_encode($catdata);
+
+    break;
+
+
+
+    case 'update_product_fav':
+    $_REQUEST['user_type'] = "fav_product";
+
+    update_user_fav();
+    //print_r($catdata);
+    //echo json_encode($catdata);
+
+    break;
+
+case 'update_bikes_compare':
+    $_REQUEST['user_type'] = "compare_bike";
+
+    update_user_fav();
+    //print_r($catdata);
+    //echo json_encode($catdata);
+
+    break;
+
+
+case 'update_bikes_fav':
+    $_REQUEST['user_type'] = "fav_bike";
+
+    update_user_fav();
+    //print_r($catdata);
+    //echo json_encode($catdata);
+
+    break;
+
+
+    case 'getfield':
+
+
+
+
+          $page = $_GET['page'];
+          $field = $_GET['field'];
+          $select = "select distinct ".$field."  field from THrtRproduct_list";
+          //$selectcount = "select count(*) ct from THrtRproduct_list";
+          $page = $page * 1;
+          $where = " ";
+          $limit = " limit  ".$page.", 9";
+          $sql = $select.$where;
+          $sqlselect = $selectcount.$where;
+          // run SQL statement
+          $result = mysqli_query($con,$sql);
+        //  $resultcount = mysqli_query($con,$sqlselect);
+
+
+          if (!$result) {
+            http_response_code(404);
+            die(mysqli_error($con));
+          }
+           $count  = mysqli_fetch_object($resultcount);
+          //var_dump($count->ct);
+
+          $data = array();
+          $total = $count->ct;
+          $currentpage = 1;
+          //$data['totalItems'] = $total;
+          //$data['totalPages'] =round($total/10);
+          //$data['currentPage'] = $currentpage;
+          for ($i=0 ; $i<mysqli_num_rows($result) ; $i++) {
+            $model = mysqli_fetch_object($result);
+            $data['field'][] =  $model->field;
+          }
+          echo json_encode($data);
+      break;
+  case 'getbikesmap':
+
+$actual_link = "http://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
+      $data =  get_transient($actual_link);
+      if(!empty($data)){
+        echo $data;
+        die;
+      }
+
+    // if(empty($_REQUEST['lat'])){
+      // $Region= "USA";
+            // // set IP address and API access key
+            // $ip = getIp();
+            // $api_result = '';
+            // $api_result =  get_transient( 'IPNEW_'.$ip );
+                // //  var_dump($api_result);
+                  // if ( empty( $api_result) ) {
+                  // // this code runs when there is no valid transient set
+                      // //echo "API called";
+
+
+
+                   // // $ip = '2.58.45.2';
+                    // $access_key = 'cd7730575c2f30aa0da956bb7a3d9912';
+
+                        // // Initialize CURL:
+                    // //echo 'http://ip-api.com/json/'.$ip;
+                    // $ch = curl_init('http://ip-api.com/json/'.$ip);
+                    // curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+                        // // Store the data:
+                    // $json = curl_exec($ch);
+                    // curl_close($ch);
+
+                        // // Decode JSON response:
+                    // $api_result = json_decode($json, true);
+                    // set_transient( 'IPNEW_'.$ip, $api_result, YEAR_IN_SECONDS );
+                // }
+                 // //print_r($api_result);
+                  // //$_SESSION['country'] = $api_result['country_code'];
+               // $Region =  $api_result['countryCode'];
+          // }
+
+    $page = $_GET['page'];
+    if(empty($page)){
+      $page = 1;
+    }
+
+    // $latlong = "";
+
+    // if(!empty($_REQUEST['lat'])){
+            // $distance  = $_REQUEST['distance'];
+            // if(empty($distance)){
+              // $distance = 10000000;
+            // }
+            // $distance = $distance * 1.6;
+            // $latitude = $_REQUEST['lat'];
+            // $longitude = $_REQUEST['lng'];
+            // $latlong = " , (((acos(sin((".$latitude."*pi()/180)) * sin((`stm_dealer_location_lat`*pi()/180)) + cos((".$latitude."*pi()/180)) * cos((`stm_dealer_location_lat`*pi()/180)) * cos(((".$longitude."- `stm_dealer_location_lng`)*pi()/180)))) * 180/pi()) * 60 * 1.1515) as distance_in_km";
+        // }
+
+
+    $meta_query = array();
+    $tax_query = array();
+
+    $args = array(
+      'post_type' => 'listings',
+      'post_status' => 'publish',
+      'posts_per_page' => 900,
+    );
+
+    // filter by page
+    if( !empty($page) ){
+      $paged = $page;
+      $args['paged'] = $paged;
+    }
+
+    // filter by keywords
+    if( !empty($_GET['ca_keywords']) ){
+      $args['s'] = $_GET['ca_keywords'];
+    }
+
+    // filter by price
+  /*  if( (!empty($_GET['min_price']) || $_GET['min_price'] == 0) && !empty($_GET['max_price']) ){
+      $meta_query[] = array(
+        'key' => 'price',
+        'value' => array( intval($_GET['min_price']), intval($_GET['max_price']) ),
+            'compare'   => 'BETWEEN',
+        'type'      => 'NUMERIC',
+      );
+    }*/
+
+/*    // filter by mileage
+    if( (!empty($_GET['min_mileage']) || $_GET['min_mileage'] == 0) && !empty($_GET['max_mileage']) ){
+      $meta_query[] = array(
+        'key' => 'mileage',
+        'value' => array( intval($_GET['min_mileage']), intval($_GET['max_mileage']) ),
+            'compare'   => 'BETWEEN',
+        'type'      => 'NUMERIC',
+      );
+    }
+    */
+    // filter by region
+    if( !empty($_GET['Region']) ){
+      $region = $_GET['Region'];
+      $tax_query[] = array(
+        'taxonomy' => 'region',
+        'field' => 'term_id',
+        'terms' => $region,
+      );
+    }
+
+    // filter by model
+    if( !empty($_GET['make']) ){
+      $make_id = $_GET['make'];
+      $tax_query[] = array(
+        'taxonomy' => 'make',
+        'field' => 'term_id',
+        'terms' => $make_id,
+      );
+    }
+
+    // filter by year
+    if( !empty($_GET['year']) ){
+      $year = $_GET['year'];
+      $tax_query[] = array(
+        'taxonomy' => 'ca-year',
+        'field' => 'term_id',
+        'terms' => $year,
+      );
+    }
+
+    // filter by condition
+    if( !empty($_GET['condition']) ){
+      $condition = $_GET['condition'];
+      $tax_query[] = array(
+        'taxonomy' => 'condition',
+        'field' => 'term_id',
+        'terms' => $condition,
+      );
+    }
+
+    // filter by seller
+    if( !empty($_GET['seller']) ){
+      $seller = $_GET['seller'];
+      $tax_query[] = array(
+        'taxonomy' => 'seller',
+        'field' => 'term_id',
+        'terms' => $seller,
+        );
+    }
+
+
+    if( !empty($meta_query) ){
+      $args['meta_query'] = $meta_query;
+    }
+
+    if( !empty($tax_query) ){
+      $args['tax_query'] = $tax_query;
+    }
+    //echo "<pre>"; print_r($args); echo "</pre><br>";
+
+
+
+    //$bike_query = get_posts( $args );
+    //print_r($args);
+    //die;
+    $args_all = $args;
+   $all_bikes = new WP_Query( $args_all );
+  //echo $all_bikes->request;
+  //  die;
+    $total_bikes = $all_bikes->found_posts;
+
+    $data = array();
+    $total = $total_bikes;
+    $currentpage = 1;
+    $data['totalItems'] = $total;
+    $length = 5;
+        $string = substr(str_repeat(0, $length).$total , - $length);
+        $data['totalItemsString'] = str_split($string,1);
+        $data['totalPages'] =round($total/15);
+        $data['currentPage'] = $currentpage;
+    $data['products'] = array();
+
+    if( is_user_logged_in() ){
+      $data['login'] = 1;
+    }else{
+      $data['login'] = 0;
+    }
+
+
+
+
+    //echo "totalbikes: ".$totalbikes."<br>";
+
+    if( $all_bikes ){
+      foreach ($all_bikes->posts as $bike) {
+        //print_r($bikes);
+        $newProvider ="";
+
+        $newProvider->id  = $bike->ID;
+        $newProvider->Business_Name  = $bike->post_title;
+
+        $newProvider->single_link  = get_permalink($bike->ID);
+        $url = get_post_meta($bike->ID, 'URL', true);
+        if(!empty($url)){
+          $newProvider->ebay_link = get_post_meta($bike->ID, 'URL', true);
+        }else{
+          $newProvider->ebay_link = get_permalink($bike->ID);
+        }
+
+        $newProvider->stm_dealer_location_lat  = get_post_meta($bike->ID, 'stm_lat_car_admin', true);
+        $newProvider->stm_dealer_location_lng  = get_post_meta($bike->ID, 'stm_lng_car_admin', true);
+        $newProvider->stm_dealer_location_lat  = preg_replace("/[a-zA-Z]/", "", $newProvider->stm_dealer_location_lat);
+        $newProvider->stm_dealer_location_lng  = preg_replace("/[a-zA-Z]/", "", $newProvider->stm_dealer_location_lng);
+
+        $data['products'][] =  $newProvider;
+      }
+    }
+
+    set_transient($actual_link,json_encode($data),12 * HOUR_IN_SECONDS);
+    echo json_encode($data);
+
+    break;
+
+  case 'getbikes':
+
+  $actual_link = "http://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
+      $data =  get_transient($actual_link);
+      if(!empty($data)){
+        echo $data;
+        die;
+      }
+
+    // if(empty($_REQUEST['lat'])){
+      // $Region= "USA";
+            // // set IP address and API access key
+            // $ip = getIp();
+            // $api_result = '';
+            // $api_result =  get_transient( 'IPNEW_'.$ip );
+                // //  var_dump($api_result);
+                  // if ( empty( $api_result) ) {
+                  // // this code runs when there is no valid transient set
+                      // //echo "API called";
+
+
+
+                   // // $ip = '2.58.45.2';
+                    // $access_key = 'cd7730575c2f30aa0da956bb7a3d9912';
+
+                        // // Initialize CURL:
+                    // //echo 'http://ip-api.com/json/'.$ip;
+                    // $ch = curl_init('http://ip-api.com/json/'.$ip);
+                    // curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+                        // // Store the data:
+                    // $json = curl_exec($ch);
+                    // curl_close($ch);
+
+                        // // Decode JSON response:
+                    // $api_result = json_decode($json, true);
+                    // set_transient( 'IPNEW_'.$ip, $api_result, YEAR_IN_SECONDS );
+                // }
+                 // //print_r($api_result);
+                  // //$_SESSION['country'] = $api_result['country_code'];
+               // $Region =  $api_result['countryCode'];
+          // }
+
+    $page = $_GET['page'];
+    if(empty($page)){
+      $page = 1;
+    }
+
+    // $latlong = "";
+
+    // if(!empty($_REQUEST['lat'])){
+            // $distance  = $_REQUEST['distance'];
+            // if(empty($distance)){
+              // $distance = 10000000;
+            // }
+            // $distance = $distance * 1.6;
+            // $latitude = $_REQUEST['lat'];
+            // $longitude = $_REQUEST['lng'];
+            // $latlong = " , (((acos(sin((".$latitude."*pi()/180)) * sin((`stm_dealer_location_lat`*pi()/180)) + cos((".$latitude."*pi()/180)) * cos((`stm_dealer_location_lat`*pi()/180)) * cos(((".$longitude."- `stm_dealer_location_lng`)*pi()/180)))) * 180/pi()) * 60 * 1.1515) as distance_in_km";
+        // }
+
+
+    $meta_query = array();
+    $tax_query = array();
+
+    $args = array(
+      'post_type' => 'listings',
+      'post_status' => 'publish',
+      'posts_per_page' => 15,
+    );
+
+    // filter by page
+    if( !empty($page) ){
+      $paged = $page;
+      $args['paged'] = $paged;
+    }
+
+    // filter by keywords
+    if( !empty($_GET['ca_keywords']) ){
+      $args['s'] = $_GET['ca_keywords'];
+    }
+
+    // filter by price
+  /*  if( (!empty($_GET['min_price']) || $_GET['min_price'] == 0) && !empty($_GET['max_price']) ){
+      $meta_query[] = array(
+        'key' => 'price',
+        'value' => array( intval($_GET['min_price']), intval($_GET['max_price']) ),
+            'compare'   => 'BETWEEN',
+        'type'      => 'NUMERIC',
+      );
+    }*/
+
+/*    // filter by mileage
+    if( (!empty($_GET['min_mileage']) || $_GET['min_mileage'] == 0) && !empty($_GET['max_mileage']) ){
+      $meta_query[] = array(
+        'key' => 'mileage',
+        'value' => array( intval($_GET['min_mileage']), intval($_GET['max_mileage']) ),
+            'compare'   => 'BETWEEN',
+        'type'      => 'NUMERIC',
+      );
+    }
+    */
+    // filter by region
+    if( !empty($_GET['Region']) ){
+      $region = $_GET['Region'];
+      $tax_query[] = array(
+        'taxonomy' => 'region',
+        'field' => 'term_id',
+        'terms' => $region,
+      );
+    }
+
+    // filter by model
+    if( !empty($_GET['make']) ){
+      $make_id = $_GET['make'];
+      $tax_query[] = array(
+        'taxonomy' => 'make',
+        'field' => 'term_id',
+        'terms' => $make_id,
+      );
+    }
+
+    // filter by year
+    if( !empty($_GET['year']) ){
+      $year = $_GET['year'];
+      $tax_query[] = array(
+        'taxonomy' => 'ca-year',
+        'field' => 'term_id',
+        'terms' => $year,
+      );
+    }
+
+    // filter by condition
+    if( !empty($_GET['condition']) ){
+      $condition = $_GET['condition'];
+      $tax_query[] = array(
+        'taxonomy' => 'condition',
+        'field' => 'term_id',
+        'terms' => $condition,
+      );
+    }
+
+    // filter by seller
+    if( !empty($_GET['seller']) ){
+      $seller = $_GET['seller'];
+      $tax_query[] = array(
+        'taxonomy' => 'seller',
+        'field' => 'term_id',
+        'terms' => $seller,
+        );
+    }
+
+
+    if( !empty($meta_query) ){
+      $args['meta_query'] = $meta_query;
+    }
+
+    if( !empty($tax_query) ){
+      $args['tax_query'] = $tax_query;
+    }
+    //echo "<pre>"; print_r($args); echo "</pre><br>";
+
+
+
+    //$bike_query = get_posts( $args );
+    //print_r($args);
+    //die;
+    $args_all = $args;
+   $all_bikes = new WP_Query( $args_all );
+  //echo $all_bikes->request;
+  //  die;
+    $total_bikes = $all_bikes->found_posts;
+
+    $data = array();
+    $total = $total_bikes;
+    $currentpage = 1;
+    $data['totalItems'] = $total;
+    $length = 5;
+        $string = substr(str_repeat(0, $length).$total , - $length);
+        $data['totalItemsString'] = str_split($string,1);
+        $data['totalPages'] =round($total/15);
+        $data['currentPage'] = $currentpage;
+    $data['products'] = array();
+
+    if( is_user_logged_in() ){
+      $data['login'] = 1;
+    }else{
+      $data['login'] = 0;
+    }
+
+
+
+
+    //echo "totalbikes: ".$totalbikes."<br>";
+
+    if( $all_bikes ){
+      foreach ($all_bikes->posts as $bike) {
+        //print_r($bikes);
+        $newProvider ="";
+
+        $newProvider->id  = $bike->ID;
+        //$newProvider->title  = $bike->post_title;
+		
+		$title = str_replace('&nbsp;', ' ', $bike->post_title);
+		$newProvider->title  = $title;
+		
+        $newProvider->ItemId  = get_post_meta($bike->ID, 'ItemId', true);
+
+        $feature_image = get_post_meta($bike->ID, 'property_featured_image', true);
+		$featured_img_url = get_the_post_thumbnail_url($bike->ID, 'full'); 
+        if( $feature_image ){
+			$newProvider->feature_image  = $feature_image;
+        }elseif( $featured_img_url ){
+			$newProvider->feature_image  = $featured_img_url;
+		}else{
+			$newProvider->feature_image  = get_stylesheet_directory_uri().'/assets/images/plchldr255.png';
+        }
+
+        $newProvider->single_link  = get_permalink($bike->ID);
+        $url = get_post_meta($bike->ID, 'URL', true);
+        //if(!empty($url)){
+        //  $newProvider->ebay_link = get_post_meta($bike->ID, 'URL', true);
+       // }else{
+          $newProvider->ebay_link = get_permalink($bike->ID);
+       // }
+
+        $newProvider->price  = round(get_post_meta($bike->ID, 'price', true));
+
+        $currency_id = get_post_meta($bike->ID, 'currency_id', true);
+		if( empty($currency_id) ){
+			$currency_id = "GBP";
+		}
+        $currency_symbol = get_currency_symbol($currency_id);
+        $newProvider->currency  = $currency_symbol;
+        $newProvider->distance  = $bikes->stm_distance;
+
+        $newProvider->location = get_post_meta($bike->ID, 'stm_car_location', true);
+        $newProvider->mileage  = get_post_meta($bike->ID, 'mileage', true);
+        $newProvider->engine  = get_post_meta($bike->ID, 'engine', true);
+        $mot = get_post_meta($bike->ID, 'mot', true);
+        $newProvider->Seller  = get_post_meta($bike->ID, 'seller', true);
+
+        $newProvider->stm_dealer_location_lat  = get_post_meta($bike->ID, 'stm_lat_car_admin', true);
+        $newProvider->stm_dealer_location_lng  = get_post_meta($bike->ID, 'stm_lng_car_admin', true);
+        $newProvider->stm_dealer_location_lat  = preg_replace("/[a-zA-Z]/", "", $newProvider->stm_dealer_location_lat);
+        $newProvider->stm_dealer_location_lng  = preg_replace("/[a-zA-Z]/", "", $newProvider->stm_dealer_location_lng);
+        $Seller = get_the_terms( $bike->ID, 'seller' );
+        $newProvider->Seller = $Seller[0]->name;
+
+        $models  = get_the_terms( $bike->ID, 'make' );
+        $newProvider->model = $models[0]->name;
+
+        $Year = get_the_terms( $bike->ID, 'ca-year' );
+        $newProvider->Year = $Year[0]->name;
+
+        //$models  = get_the_terms( $bike->ID, 'make' );
+        //$model = $models[0];
+        // if( $models ){
+          // $links = array();
+          // foreach( $models as $model ){
+            // $links[] = $model->name;
+          // }
+          // $model_list = implode(', ', $links);
+        // }else{
+          // $model_list = '';
+        // }
+
+        if($mot == 'yes'){
+          $newProvider->mot = 'Yes';
+        }else if($mot == 'no'){
+          $newProvider->mot = 'No';
+        }else {
+          $newProvider->mot = 'N/A';
+        }
+
+
+        $data['products'][] =  $newProvider;
+      }
+    }
+  set_transient($actual_link,json_encode($data), 12 * HOUR_IN_SECONDS );
+
+    echo json_encode($data);
+
+    break;
+
+  case 'get_region':
+
+    $region_catdata = get_terms_by_posttype('region','listings');
+
+    echo json_encode($region_catdata);
+
+    /*$children = array();
+    foreach($region_catdata as $childregion){
+      foreach($childregion['child'] as $term){
+        //print_r($term);
+        $children[ $term['term_id'] ]['name'] = $term['name'];
+        $children[ $term['term_id'] ]['term_id'] = $term['term_id'];
+      }
+    }*/
+    //print_r($region_catdata);
+    //echo json_encode($children);
+
+  break;
+
+  case 'get_model':
+    $actual_link = "http://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
+    $data =  get_transient($actual_link);
+    if(!empty($data)){
+      echo $data;
+      die;
+    }
+    //$model_data = get_terms_by_post_type(array('make'), array('listings'));
+  //  $modeldata = get_taxonomy_hierarchy_listing('make');
+  $modeldata = get_terms_by_posttype('make','listings');
+    //print_r($modeldata);
+    set_transient($modeldata,json_encode($data), 12 * HOUR_IN_SECONDS );
+    echo json_encode($modeldata);
+
+  break;
+
+  case 'get_condition':
+
+    //$model_data = get_terms_by_post_type(array('make'), array('listings'));
+    //$modeldata = get_taxonomy_hierarchy_listing('condition');
+    $modeldata = get_terms_by_posttype('condition','listings');
+
+    //print_r($modeldata);
+    echo json_encode($modeldata);
+
+  break;
+
+  case 'get_seller':
+
+    //$model_data = get_terms_by_post_type(array('make'), array('listings'));
+    //$modeldata = get_taxonomy_hierarchy_listing('seller');
+    $modeldata = get_terms_by_posttype('seller','listings');
+
+    //print_r($modeldata);
+    echo json_encode($modeldata);
+
+  break;
+
+  case 'get_year':
+
+    //$yeardata = get_taxonomy_hierarchy_listing('ca-year');
+    $yeardata = get_terms_by_posttype('ca-year','listings');
+    //print_r($yeardata);
+    echo json_encode($yeardata);
+
+  break;
+
+
+}
+
+
+
+$con->close();

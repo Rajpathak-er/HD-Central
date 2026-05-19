@@ -1,0 +1,146 @@
+.author-form .form-control:focus{
+    border-color: #80bdff !important;
+}
+
+.author-form input[type='password'],.author-form select{
+    border: 2px solid #eceff3 !important;
+}
+
+.author-form select{
+    opacity: 1;
+    visibility: initial;
+}
+
+.user-top-navbar ul.nav .login-user{
+    padding: 10px;
+}
+
+.navbar::before,.navbar::after{
+    content: none !important;
+} 
+
+.stm-usersidebar-left .nav.submenu{
+    margin-bottom: 0 !important;
+    display: none;
+}
+.stm-usersidebar-left.navbar-default a{
+    padding: 14px 42px 14px 25px !important;
+}
+
+.navbar-default.stm-usersidebar-left ul ul li a{
+    padding: 10px 30px 10px 57px !important; 
+}
+
+
+.stm-usersidebar-left .submenu:has(> a.active) {
+    display: block;
+}
+
+.wcmp-color-scheme-outer_space_blue .navbar .topbar-left{
+    background-color: #D60F17 !important;
+}
+.user-top-navbar .navbar .topbar-left .site-logo a{
+	text-align: left;
+	padding: 14px 42px 14px 25px;
+}
+.user-top-navbar .navbar .topbar-left .site-logo a i{
+	font-size: 22px;
+    margin-right: 9px;
+    vertical-align: middle;
+}
+
+
+/* .p-0{
+    padding-left: 0 !important;
+}
+
+.author #header-nav-holder{
+    display: none;
+}
+
+
+
+.stm-usersidebar-left {
+    width: 313px;
+    background-color: #333b3d !important;
+}
+
+.stm-usersidebar-left-wrapper{
+    
+}
+.stm-sticky-user-sidebar{
+    padding-left: 0 !important;
+}
+.stm-user-private-sidebar{
+    padding-right: 0 !important;
+    background-color: #333b3d !important;
+}
+.author__sidebar-menu{
+    padding-left: 0;
+}
+
+.author__sidebar-menu .parent-menu-wrapper{
+    margin-bottom: 0px;
+}
+
+.author__sidebar-menu a{
+    cursor: pointer;
+    padding-left: 5px !important;
+}
+
+.author__sidebar-menu .dropdown-container{
+    display: none;
+    margin-top: 0px;
+    padding-top: 15px;
+    padding-bottom: 15px;
+    padding-left: 78px;
+    background: #4d4b4b;
+}
+
+.author__sidebar-menu .dropdown-container a{
+  padding: 10px;
+  margin-bottom: 0 !important;
+}
+
+.author__sidebar-menu .dropdown-container li a.active{
+
+    color: white;
+    
+}
+
+.author__sidebar-menu .parent-menu:hover,.parent-menu.active{
+    background:#202528;
+   
+   
+}
+
+.author__sidebar-menu .parent-menu:hover .menu-icon ,.author__sidebar-menu .parent-menu.active .menu-icon{
+    color: #3f85b9 !important;
+}
+
+.author__sidebar-menu .parent-menu{
+    margin-bottom: 2px !important;
+    padding: 14px;
+    padding-left: 30px !important;
+    display: flex !important;
+}
+
+
+
+.author__sidebar-menu .menu-icon{
+    color: #bab9b9 !important;
+    font-size: 22px;
+    position:  revert;
+    
+    margin-right: 12px;
+    
+}
+
+.author__sidebar-menu .menu-icon-down{
+    position: absolute;
+    right: 0 !important;
+} 
+@media (min-width: 992px){
+
+
+} */

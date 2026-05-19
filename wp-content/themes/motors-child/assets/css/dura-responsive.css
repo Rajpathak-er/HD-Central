@@ -1,0 +1,403 @@
+/*==================================================
+=            Bootstrap 3 Media Queries             =
+==================================================*/
+
+/* MEDIA QUERY --> EXTRA SMALL DEVICES */
+@media(max-width:767px){
+	.absolute {
+		/* utility class, absolute positioning */
+		transition: none;
+	}
+	/* OVERRIDE BOOTSTRAP'S MARGIN AND PADDING @ EXTRA-SMALL-DEVICES */
+	div.nav-container .navbar ul.nav {
+		margin: 0;
+		padding: 15px 0px;
+	}
+	
+	/* DO NOT SHOW SUBMENU ARROWS @ EXTRA-SMALL-DEVICES */
+	div.nav-container .navbar ul.nav > li > ul > li > a:after {
+		border-width: 0px 0 0px 0px;
+	}
+	
+	/* SMALLER "SCROLL TO TOP" IMAGE @ EXTRA-SMALL-DEVICES */
+	.scrollup {
+		width: 32px;
+		height: 32px;
+		bottom: 20px;
+		right: 20px;
+		background: url(../img/scroll-to-top-32.png) no-repeat;
+		opacity: 0.5;
+	}
+	
+	/* TOP ROW DROPDOWNS */
+	.header-top-row {
+		max-height: 30px; /* remove this, if you want columns to wrap */
+		padding: 0;
+	}
+	
+	.header-top-row .dropdown-menu {
+		min-width: 150px;
+		max-width: 150px;
+	}
+
+	.header-top-row > div > ul {
+		margin: 0;
+	}
+	
+	.header-top-row > div > ul > li {
+		padding: 0;
+		line-height: 30px;
+	}	
+	.header-top-row > div > ul > li > a {
+		padding: 0px 10px;
+		display: block;
+	}
+	
+	.header-top-row > div > ul > li > ul {
+		top: 30px;
+		right: 15px;
+		width: 120px;
+		min-width: 100px;
+	}
+	
+	i.font-size-16 {
+		font-size: 16px;
+	}
+
+	
+	/* CENTRAL ROW DROPDOWNS */
+	
+	.header-central-row > div > ul > li > div {
+		right: 15px;
+	}
+	.header-central-row .font-size-28 {
+		font-size: 24px;
+	}
+	
+	.header-central-row > div > ul > li {
+		padding: 18px 10px 2px 10px; /* top right bottom left */
+	}
+	
+	.header-central-row > div > ul > li:last-child {
+		padding-right: 10px;
+	}
+
+	
+	/* MAIN NAVIGATION */
+	.dropdown-menu-shopping {
+		display: none;
+	}
+	
+	div.nav-container .navbar ul.nav > li > ul.dropdown-menu {
+		/* dropdown position */
+		position: relative;
+		width: 100%;
+		top: 0;
+	}
+	
+	/* STANDARD MEGA MENU */
+	
+	div.dropdown-mega-content {
+		position: relative;
+		top: 0;
+		width: 100%;
+		background: #fff;
+		height: 370px;
+		overflow: scroll;
+		overflow-x: hidden;
+		padding-bottom: 20px;
+	}
+	
+	/* mega menu scroll-bar */
+	div.dropdown-mega-content::-webkit-scrollbar {
+		width: 7px;
+		height: 7px;
+	}
+	div.dropdown-mega-content::-webkit-scrollbar-button {
+		width: 0px;
+		height: 0px;
+	}
+	div.dropdown-mega-content::-webkit-scrollbar-thumb {
+		background: #484848;
+		border: 0px none #ffffff;
+		border-radius: 0px;
+	}
+	div.dropdown-mega-content::-webkit-scrollbar-thumb:hover {
+		background: #7e7e7e;
+	}
+	div.dropdown-mega-content::-webkit-scrollbar-thumb:active {
+		background: #fb486c;
+	}
+	div.dropdown-mega-content::-webkit-scrollbar-track {
+		background: #e5e5e5;
+		border: 0px none #ffffff;
+		border-radius: 50px;
+	}
+	div.dropdown-mega-content::-webkit-scrollbar-track:hover {
+		background: #f2f2f2;
+	}
+	div.dropdown-mega-content::-webkit-scrollbar-track:active {
+		background: #f8f8f8;
+	}
+	div.dropdown-mega-content::-webkit-scrollbar-corner {
+		background: transparent;
+	}
+	
+
+	/* TABBED CUSTOM WIDTH MENU */
+	div.nav-container .navbar ul.nav > li > div.tabbed-menu {
+		position: relative;
+		top: 0;
+		width: 100%;
+		background: #fff;
+	}
+	
+	div.nav-container .navbar ul.nav > li > div.tabbed-menu > ul > li > div.tabbed-menu-content { /* category content */
+		display: none;
+	}
+	
+	/* TABBED MEGA MENU */
+	div.nav-container .navbar ul.nav > li > div.tabbed-mega-menu {
+		background: #fff;
+		left: 0;
+	}
+	
+	div.nav-container .navbar ul.nav > li > div.tabbed-mega-menu > ul > li > div.tabbed-menu-content { /* tab content */
+		display: none;
+	}
+	
+	div.nav-container .navbar ul.nav > li > div.tabbed-menu > ul {
+		padding: 0;
+		margin: 0;
+		width: 100%;
+		height: auto;
+		background: #fff;
+		border: none;
+	}
+	
+	div.nav-container .navbar ul.nav > li > div.tabbed-menu > ul > li > a,
+	div.nav-container .navbar ul.nav > li > div.tabbed-menu > ul > li > a.active-tab,
+	div.nav-container .navbar ul.nav > li > div.tabbed-mega-menu > ul > li > a,
+	div.nav-container .navbar ul.nav > li > div.tabbed-mega-menu > ul > li > a.active-tab {
+		display: block;
+		background: #fff;
+		border: none;
+		border-bottom: 1px dashed #efefef;
+		color: #666;
+		padding: 10px 15px;
+		font-size: 14px;
+		font-weight: normal;
+		text-shadow: none;
+		text-transform: capitalize;
+		
+	}
+	
+	div.nav-container .navbar ul.nav > li > div.tabbed-menu > ul > li:hover > a,
+	div.nav-container .navbar ul.nav > li > div.tabbed-menu > ul > li:hover > a.active-tab { /* category menu items:hover */
+		background: #f7f7f7;
+		border: none;
+		border-bottom: 1px dashed #efefef;
+		color: #fb486c;
+		text-decoration: none;
+	}
+	
+	div.nav-container .navbar ul.nav > li > div > ul > li > div.tabbed-menu-content .row {
+		margin-bottom: 0px;
+	}
+	
+	
+	
+	/* OPEN ALL DROPDOWNS WHEN CLICKED */
+	.open .dropdown-mega-content, .open .tabbed-menu, .open .tabbed-mega-menu {
+		display: block;
+		visibility: visible;
+		opacity: 1;
+		z-index: 999999;
+	}
+	
+	.tabbed-height-375 { }
+		
+	/* DURA SEARCH */
+	.header-central-row > div > ul > li.dura-search .dropdown-menu-search {
+		position: absolute;
+		top: 60px;
+		width: 250px;
+		height: 50px;
+		border: 1px solid #ccc;
+	}
+	
+	.header-central-row > div > ul > li.dura-search .dropdown-menu-search .dura-sarch-input {
+		width: 200px;	
+		padding: 0;
+		font-size: 17px;
+	}
+	
+	.overlay-visible {
+		visibility: hidden;
+		opacity: 0;
+	}
+	
+	.logo {
+		max-width: 140px;
+	}
+}
+
+/* MEDIA QUERY --> SMALL DEVICES */
+@media(min-width:768px) and (max-width:991px){
+	.container {
+		/* override Bootstrap ".container" class properties */
+		max-width: 800px;
+	}
+	/* NAVIGATION - 2ND LEVEL */
+	div.nav-container .navbar ul.nav > li > ul.dropdown-menu {
+		/* dropdown position */
+		width: 200px;
+	}
+	/* NAVIGATION - 3RD LEVEL */
+	div.nav-container .navbar ul.nav > li > ul > li > div.dropdown-menu-shopping {
+		width: 570px;
+	}
+	/* ENABLES TOP-ROW BOOTSTRAP DROPDOWNS TO WORK FOR :HOVER STATE, INSTEAD OF MOUSE CLICK @ SMALL DEVICES */
+	div.header-top-row ul > li:hover > div.dropdown-menu {
+		display: block;
+	}
+	/* ENABLES CENTRAL-ROW BOOTSTRAP DROPDOWNS TO WORK FOR :HOVER STATE, INSTEAD OF MOUSE CLICK @ LARGE DEVICES */
+	div.header-central-row ul > li:hover > ul.dropdown-menu {
+		display: block;
+	}
+	/* ENABLES BOOTSTRAP DROPDOWNS TO WORK FOR :HOVER STATE, INSTEAD OF MOUSE CLICK @ SMALL DEVICES */
+	div.nav-container .navbar ul.nav li.dropdown:hover > ul.dropdown-menu {
+		display: block;
+	}
+	/* ENABLES DURA MENU SHOPPING DROPLEFTS TO WORK FOR :HOVER STATE, INSTEAD OF MOUSE CLICK @ SMALL DEVICES */
+	div.nav-container .navbar ul.nav > li > ul > li:hover div.dropdown-menu-shopping {
+		visibility: visible;
+		opacity: 1;
+		display: block;
+	}
+	/* ENABLES DURA MENU MEGA MENU TO WORK FOR :HOVER STATE, INSTEAD OF MOUSE CLICK @ SMALL DEVICES */
+	li.dropdown-mega:hover div.dropdown-mega-content {
+		visibility: visible;
+		opacity: 1;
+		display: block;
+	}
+	/* ENABLES DURA MENU TABBED MENU TO WORK FOR :HOVER STATE, INSTEAD OF MOUSE CLICK @ SMALL DEVICES */
+	div.nav-container .navbar ul.nav > li:hover div.tabbed-menu { 
+		visibility: visible;
+		opacity: 1;
+		display: block;
+	}
+
+	/* SMALLER "SCROLL TO TOP" IMAGE @ EXTRA-SMALL-DEVICES */
+	.scrollup {
+		width: 32px;
+		height: 32px;
+		bottom: 20px;
+		right: 20px;
+		background: url(../img/scroll-to-top-32.png) no-repeat;
+		opacity: 0.5;
+	}
+	
+	div.dropdown-mega-content {
+		width: 770px;
+	}
+	
+	div.nav-container .navbar ul.nav > li > div.tabbed-mega-menu {
+		width: 770px;
+	}
+	
+	div.nav-container .navbar ul.nav > li > div.tabbed-mega-menu > ul > li > div.tabbed-menu-content { 
+		visibility: hidden;
+		opacity: 0;
+		position: absolute;
+		width: 588px;
+		height: 99%;
+		left: 180px; /* dependant property */
+		top: 0px;
+		padding: 20px;
+		background:#fff; /* control bg */
+		
+		font-size: 14px;
+		font-weight: normal;
+		
+	}
+	
+	/* DURA SEARCH */
+	.header-central-row > div > ul > li.dura-search .dropdown-menu-search {
+		width: 800px;
+	}
+	.header-central-row > div > ul > li.dura-search .dropdown-menu-search .dura-sarch-input {
+		padding: 0 235px;
+	}
+
+}
+
+/* MEDIA QUERY --> MEDIUM DEVICES */
+@media(min-width:992px) and (max-width:1199px){
+	/* ENABLES TOP-ROW BOOTSTRAP DROPDOWNS TO WORK FOR :HOVER STATE, INSTEAD OF MOUSE CLICK @ MEDIUM DEVICES */
+	div.header-top-row ul > li:hover > ul.dropdown-menu {
+		display: block;
+	}
+	/* ENABLES CENTRAL-ROW BOOTSTRAP DROPDOWNS TO WORK FOR :HOVER STATE, INSTEAD OF MOUSE CLICK @ MEDIUM DEVICES */
+	div.header-central-row ul > li:hover > div.dropdown-menu.dropdown-central {
+		display: block;
+	}
+	/* ENABLES BOOTSTRAP DROPDOWNS TO WORK FOR :HOVER STATE, INSTEAD OF MOUSE CLICK @ MEDIUM DEVICES */
+	div.nav-container .navbar ul.nav li.dropdown:hover > ul.dropdown-menu {
+		display: block;
+	}
+	/* ENABLES DURA MENU SHOPPING DROPLEFTS TO WORK FOR :HOVER STATE, INSTEAD OF MOUSE CLICK @ MEDIUM DEVICES */
+	div.nav-container .navbar ul.nav > li > ul > li:hover div.dropdown-menu-shopping {
+		visibility: visible;
+		opacity: 1;
+		display: block;
+	}
+	/* ENABLES DURA MENU MEGA MENU DROPDOWNS TO WORK FOR :HOVER STATE, INSTEAD OF MOUSE CLICK @ MEDIUM DEVICES */
+	li.dropdown-mega:hover div.dropdown-mega-content {
+		visibility: visible;
+		opacity: 1;
+		display: block;
+	}
+	/* ENABLES DURA MENU TABBED MENU TO WORK FOR :HOVER STATE, INSTEAD OF MOUSE CLICK @ MEDIUM DEVICES */
+	div.nav-container .navbar ul.nav > li:hover div.tabbed-menu { 
+		visibility: visible;
+		opacity: 1;
+		display: block;
+	}
+}
+
+/* MEDIA QUERY --> LARGE DEVICES */
+@media(min-width:1200px){
+	/* ENABLES TOP-ROW BOOTSTRAP DROPDOWNS TO WORK FOR :HOVER STATE, INSTEAD OF MOUSE CLICK @ LARGE DEVICES */
+	div.header-top-row ul > li:hover > ul.dropdown-menu {
+		display: block;
+	}
+	/* ENABLES CENTRAL-ROW BOOTSTRAP DROPDOWNS TO WORK FOR :HOVER STATE, INSTEAD OF MOUSE CLICK @ LARGE DEVICES */
+	div.header-central-row ul > li:hover > div.dropdown-menu.dropdown-central {
+		display: block;
+	}
+	
+	/* ENABLES BOOTSTRAP DROPDOWNS TO WORK FOR :HOVER STATE, INSTEAD OF MOUSE CLICK @ LARGE DEVICES */
+	div.nav-container .navbar ul.nav li.dropdown:hover > ul.dropdown-menu {
+		display: block;
+	}
+	/* ENABLES DURA MENU SHOPPING DROPLEFTS TO WORK FOR :HOVER STATE, INSTEAD OF MOUSE CLICK @ LARGE DEVICES */
+	div.nav-container .navbar ul.nav > li > ul > li:hover div.dropdown-menu-shopping {
+		visibility: visible;
+		opacity: 1;
+		display: block;
+	}
+	/* ENABLES DURA MENU MEGA MENU DROPDOWNS TO WORK FOR :HOVER STATE, INSTEAD OF MOUSE CLICK @ LARGE DEVICES */
+	li.dropdown-mega:hover div.dropdown-mega-content {
+		visibility: visible;
+		opacity: 1;
+		display: block;
+	}
+	/* ENABLES DURA MENU TABBED MENU TO WORK FOR :HOVER STATE, INSTEAD OF MOUSE CLICK @ LARGE DEVICES */
+	div.nav-container .navbar ul.nav > li:hover div.tabbed-menu { 
+		visibility: visible;
+		opacity: 1;
+		display: block;
+	}
+	
+}
